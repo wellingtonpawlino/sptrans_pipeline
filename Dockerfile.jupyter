@@ -1,29 +1,19 @@
-FROM python:3.11-slim
+FROM jupyter/pyspark-notebook:latest
 
-# Instala bash, wget, Java e dependências do sistema
-RUN apt-get update && apt-get install -y \
-    bash \
-    git \
-    libpq-dev \
-    wget \
-    default-jdk \
-    && rm -rf /var/lib/apt/lists/*
+USER root
 
-WORKDIR /app
-
-# Copia requirements e instala dependências Python
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copia todo o código do app
-COPY . .
+# Instala wget e garante Java (já vem, mas reforçamos)
+RUN apt-get update && apt-get install -y wget default-jdk && rm -rf /var/lib/apt/lists/*
 
 # Adiciona JARs para integração Spark + MinIO (S3A)
 RUN mkdir -p /usr/local/spark/jars && \
     wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -P /usr/local/spark/jars/ && \
     wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar -P /usr/local/spark/jars/
 
-# Variáveis de ambiente
+# Volta para usuário padrão do Jupyter
+USER jovyan
+
+# Define variáveis de ambiente (opcional, se você quiser usar no notebook)
 ENV MINIO_ENDPOINT=minio:9000 \
     MINIO_ROOT_USER=minioadmin \
     MINIO_ROOT_PASSWORD=minioadmin \
@@ -31,6 +21,3 @@ ENV MINIO_ENDPOINT=minio:9000 \
     DB_PORT=5432 \
     DB_NAME=sptrans \
     DB_USER=postgres \
-    DB_PASSWORD=postgres
-
-CMD ["bash"]

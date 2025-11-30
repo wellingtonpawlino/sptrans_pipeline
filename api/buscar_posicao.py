@@ -19,7 +19,7 @@ def salvar_no_minio(df, nome_arquivo):
 
         # Conexão com MinIO
         client = Minio(
-            os.getenv("MINIO_ENDPOINT", "minio:9000"),
+            os.getenv("MINIO_ENDPOINT", "hive.properties:9000"),
             access_key=os.getenv("MINIO_ROOT_USER", "minioadmin"),
             secret_key=os.getenv("MINIO_ROOT_PASSWORD", "minioadmin"),
             secure=False
@@ -51,12 +51,12 @@ def buscar_posicao_veiculos(session):
             for v in linha.get("vs", []):
                 veiculos.append({
                     "codigo_linha": linha.get("c"),
-                    "sl": linha.get("sl"),  # Sentido da linha
-                    "py": v.get("py"),
-                    "px": v.get("px"),
-                    "hr": hr,
-                    "ta": v.get("ta"),
-                    "v": v.get("v")
+                    "sentido": linha.get("sl"),  # Sentido da linha
+                    "latitude": v.get("py"),
+                    "longitude": v.get("px"),
+                    "hr_referencia": hr,
+                    "hr_atualizacao": v.get("ta"),
+                    "acessivel": v.get("a")
                 })
 
         return veiculos

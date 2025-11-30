@@ -37,7 +37,7 @@ def extrair_e_salvar_minio():
         print(f"✅ Dados extraídos: {total_registros} registros")
 
         # Configurações MinIO
-        minio_endpoint = os.getenv("MINIO_ENDPOINT", "minio:9000")
+        minio_endpoint = os.getenv("MINIO_ENDPOINT", "hive.properties:9000")
         minio_user = os.getenv("MINIO_ROOT_USER", "minioadmin")
         minio_password = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin")
         bucket_name = "sptrans-data"

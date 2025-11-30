@@ -13,3 +13,7 @@ boto3
 pyarrow
 fastparquet
 psycopg2-binary
+pyspark
+findspark
+pyspark==3.4.1
+delta-spark==2.4.0

@@ -1,3 +1,4 @@
+
 import os
 import io
 import pandas as pd
@@ -22,7 +23,9 @@ def extrair_posicao_e_salvar_minio():
         dados = buscar_posicao_veiculos(session)
         if not dados:
             print("⚠️ Nenhum dado retornado para posição, salvando arquivo vazio.")
-            df_vazio = pd.DataFrame(columns=["codigo_linha", "sl", "py", "px", "hr", "ta", "v"])
+            df_vazio = pd.DataFrame(columns=[
+                "codigo_linha", "sentido", "latitude", "longitude", "hr_referencia", "hr_atualizacao", "acessivel"
+            ])
             salvar_parquet_minio(df_vazio, "posicao_veiculos")
             return
 
@@ -31,8 +34,8 @@ def extrair_posicao_e_salvar_minio():
         # Criar DataFrame
         df = pd.DataFrame(dados)
 
-        # Colunas esperadas
-        colunas = ["codigo_linha", "sl", "py", "px", "hr", "ta", "v"]
+        # Colunas esperadas (incluindo acessibilidade e prefixo)
+        colunas = ["codigo_linha", "sentido", "latitude", "longitude", "hr_referencia", "hr_atualizacao", "acessivel"]
 
         # Garantir que todas as colunas existam
         for col in colunas:
@@ -55,7 +58,7 @@ def extrair_posicao_e_salvar_minio():
 def salvar_parquet_minio(df, base_nome):
     try:
         # Configurações MinIO
-        minio_endpoint = os.getenv("MINIO_ENDPOINT", "minio:9000")
+        minio_endpoint = os.getenv("MINIO_ENDPOINT", "hive.properties:9000")
         minio_user = os.getenv("MINIO_ROOT_USER", "minioadmin")
         minio_password = os.getenv("MINIO_ROOT_PASSWORD", "minioadmin")
         bucket_name = "sptrans-data"

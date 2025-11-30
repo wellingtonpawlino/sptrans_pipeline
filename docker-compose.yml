@@ -1,9 +1,14 @@
+version: "3.9"
+
 services:
+  # -------------------------
+  # APP (API ou ETL auxiliar)
+  # -------------------------
   app:
     build: .
     container_name: sptrans_app
-    stdin_open: true  # remover em produção
-    tty: true         # remover em produção
+    stdin_open: true
+    tty: true
     volumes:
       - .:/app
     env_file:
@@ -20,6 +25,9 @@ services:
       - DB_PASSWORD=postgres
     restart: unless-stopped
 
+  # -------------------------
+  # Banco de Dados Postgres
+  # -------------------------
   db:
     image: postgres:15
     container_name: sptrans_db
@@ -49,6 +57,9 @@ services:
     networks:
       - sptrans_net
 
+  # -------------------------
+  # Airflow
+  # -------------------------
   airflow-init:
     build:
       context: .
@@ -69,7 +80,7 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - ./api:/opt/airflow/api
       - ./processors:/opt/airflow/processors
-      - ./config:/opt/airflow/config
+      - ./config.properties:/opt/airflow/config.properties
     networks:
       - sptrans_net
 
@@ -100,7 +111,7 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - ./api:/opt/airflow/api
       - ./processors:/opt/airflow/processors
-      - ./config:/opt/airflow/config
+      - ./config.properties:/opt/airflow/config.properties
     networks:
       - sptrans_net
 
@@ -127,8 +138,9 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - ./api:/opt/airflow/api
       - ./processors:/opt/airflow/processors
-      - ./config:/opt/airflow/config
+      - ./config.properties:/opt/airflow/config.properties
       - ./data:/opt/airflow/data
+      - /var/run/docker.sock:/var/run/docker.sock
     command: webserver
     networks:
       - sptrans_net
@@ -153,12 +165,16 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - ./api:/opt/airflow/api
       - ./processors:/opt/airflow/processors
-      - ./config:/opt/airflow/config
+      - ./config.properties:/opt/airflow/config.properties
       - ./data:/opt/airflow/data
+      - /var/run/docker.sock:/var/run/docker.sock
     command: scheduler
     networks:
       - sptrans_net
 
+  # -------------------------
+  # MinIO
+  # -------------------------
   minio:
     image: minio/minio
     container_name: minio
@@ -174,17 +190,9 @@ services:
     networks:
       - sptrans_net
 
-  dbt:
-    image: ghcr.io/dbt-labs/dbt-postgres:latest
-    container_name: sptrans_dbt
-    volumes:
-      - ./dbt:/usr/app
-      - ./config/dbt_profiles:/root/.dbt
-    depends_on:
-      - db
-    networks:
-      - sptrans_net
-    entrypoint: [ "dbt" ]
+  # -------------------------
+  # Metabase
+  # -------------------------
   metabase:
     image: metabase/metabase:latest
     container_name: sptrans_metabase
@@ -202,10 +210,74 @@ services:
     networks:
       - sptrans_net
 
+  # -------------------------
+  # Jupyter Notebook
+  # -------------------------
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    container_name: sptrans_jupyter
+    ports:
+      - "8889:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+    command: start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --NotebookApp.default_url=/lab
+    networks:
+      - sptrans_net
+    depends_on:
+      - minio
+      - spark
+
+  # -------------------------
+  # Spark Master
+  # -------------------------
+  spark:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: sptrans_spark_master
+    hostname: spark
+    environment:
+      - SPARK_HOME=/opt/spark
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "spark", "--port", "7077", "--webui-port", "8080"]
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+    networks:
+      - sptrans_net
+    volumes:
+      - ./processors:/opt/airflow/processors
+      - ./data:/opt/airflow/data
+      - spark_data:/opt/spark/data
+
+  # -------------------------
+  # Spark Worker
+  # -------------------------
+  spark-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.spark
+    container_name: sptrans_spark_worker
+    environment:
+      - SPARK_HOME=/opt/spark
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark:7077"]
+    depends_on:
+      - spark
+    networks:
+      - sptrans_net
+    volumes:
+      - ./processors:/opt/airflow/processors
+      - ./data:/opt/airflow/data
+      - spark_data:/opt/spark/data
+
 volumes:
   pgdata:
   pgadmin_data:
   minio_data:
+  spark_data:
 
 networks:
   sptrans_net:

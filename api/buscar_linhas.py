@@ -1,25 +1,24 @@
 import os
 import pandas as pd
 import requests
+from io import BytesIO
 from minio import Minio
 from dotenv import load_dotenv
 from api.autenticacao import autenticar
 
 load_dotenv()
 
-# Função para salvar no MinIO e localmente
+# Função para salvar no MinIO em formato Parquet
 def salvar_no_minio(df, nome_arquivo):
     try:
-        caminho_csv = f"/opt/airflow/data/{nome_arquivo}.csv"
-        os.makedirs(os.path.dirname(caminho_csv), exist_ok=True)
-
-        # Salvar localmente
-        df.to_csv(caminho_csv, index=False)
-        print(f"📁 CSV salvo em: {caminho_csv}")
+        # Converter DataFrame para Parquet em memória
+        buffer = BytesIO()
+        df.to_parquet(buffer, index=False)
+        buffer.seek(0)
 
         # Conexão com MinIO
         client = Minio(
-            os.getenv("MINIO_ENDPOINT", "minio:9000"),
+            os.getenv("MINIO_ENDPOINT", "hive.properties:9000"),
             access_key=os.getenv("MINIO_ROOT_USER", "minioadmin"),
             secret_key=os.getenv("MINIO_ROOT_PASSWORD", "minioadmin"),
             secure=False
@@ -30,8 +29,8 @@ def salvar_no_minio(df, nome_arquivo):
             client.make_bucket(bucket_name)
             print(f"✅ Bucket '{bucket_name}' criado no MinIO")
 
-        destino = f"bronze/{nome_arquivo}.csv"
-        client.fput_object(bucket_name, destino, caminho_csv)
+        destino = f"bronze/linhas/{nome_arquivo}.parquet"
+        client.put_object(bucket_name, destino, buffer, length=buffer.getbuffer().nbytes)
         print(f"✅ Arquivo enviado para {destino} no bucket '{bucket_name}'")
 
     except Exception as e:
@@ -44,7 +43,7 @@ def buscar_e_salvar(session, termos, nome_arquivo):
     for termo in termos:
         url = f"https://api.olhovivo.sptrans.com.br/v2.1/Linha/Buscar?termosBusca={termo}"
         print(f"➡️ Consultando: {url}")
-        response = session.get(url)
+        response = session.get(url, timeout=10)
         if response.status_code == 200:
             linhas = response.json()
             if linhas:

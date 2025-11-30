@@ -2,7 +2,7 @@ from minio import Minio
 import os
 
 # Configurações do MinIO (pegue do .env)
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "minio:9000").replace("http://", "")
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "hive.properties:9000").replace("http://", "")
 MINIO_ACCESS_KEY = os.getenv("MINIO_ROOT_USER", "admin")
 MINIO_SECRET_KEY = os.getenv("MINIO_ROOT_PASSWORD", "senha123")
 

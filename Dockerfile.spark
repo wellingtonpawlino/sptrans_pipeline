@@ -1,0 +1,41 @@
+FROM eclipse-temurin:11-jre
+
+ENV SPARK_VERSION=3.5.0
+ENV HADOOP_VERSION=3
+
+# Instala dependências + Python + venv
+RUN apt-get update && apt-get install -y \
+    curl \
+    bash \
+    python3 \
+    python3-pip \
+    python3-venv \
+    && ln -s /usr/bin/python3 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cria virtualenv e ajusta PATH
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copia requirements e instala pacotes no virtualenv
+COPY requirements.txt /opt/requirements.txt
+RUN pip install --no-cache-dir -r /opt/requirements.txt
+
+# Instala Spark
+RUN curl -fsSL https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+    -o /tmp/spark.tgz && \
+    tar -xzf /tmp/spark.tgz -C /opt/ && \
+    mv /opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark && \
+    rm /tmp/spark.tgz
+
+# Adiciona JARs para integração com MinIO
+RUN curl -fSL https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -o /opt/spark/jars/hadoop-aws-3.3.4.jar && \
+    curl -fSL https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar -o /opt/spark/jars/aws-java-sdk-bundle-1.12.262.jar
+
+# Variáveis de ambiente
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$SPARK_HOME/bin:$PATH
+ENV PYSPARK_PYTHON=/opt/venv/bin/python
+
+WORKDIR /opt/spark
+CMD ["bash"]
