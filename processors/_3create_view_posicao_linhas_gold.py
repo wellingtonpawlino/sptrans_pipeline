@@ -1,4 +1,4 @@
-
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
@@ -38,6 +38,31 @@ vw_ultima_posicao_linha = df_ranked.filter(F.col("rank") == 1).drop("rank").with
 
 # Caminho Parquet (camada ouro)
 gold_path = "s3a://sptrans-data/gold/ultima_posicao"
+local_path = "/opt/airflow/data/ultima_posicao"       # Volume local mapeado para ./data
 
 # Salvar sobrescrevendo SEM partição
 vw_ultima_posicao_linha.write.mode("overwrite").parquet(gold_path)
+#vw_ultima_posicao_linha.write.mode("overwrite").parquet(local_path)
+
+
+# -------------------------
+# Salvar CSV com nome fixo
+# -------------------------
+import shutil
+
+temp_csv_path = os.path.join(local_path, "temp_csv")
+vw_ultima_posicao_linha.coalesce(1) \
+    .write.mode("overwrite") \
+    .option("header", "true") \
+    .csv(temp_csv_path)
+
+# Renomear para view_ultima_posicao.csv
+for file in os.listdir(temp_csv_path):
+    if file.startswith("part-") and file.endswith(".csv"):
+        shutil.move(os.path.join(temp_csv_path, file),
+                    os.path.join(local_path, "view_ultima_posicao.csv"))
+
+# Remover a pasta temporária
+shutil.rmtree(temp_csv_path)
+
+print(f"✅ Arquivo CSV salvo em: {os.path.join(local_path, 'view_ultima_posicao.csv')}")

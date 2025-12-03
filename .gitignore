@@ -22,7 +22,6 @@ __pycache__/
 # Docker
 *.pid
 *.sock
-data/
 pgdata/
 *.tar
 *.gz
